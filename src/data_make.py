@@ -10,6 +10,7 @@ import json
 import base64
 from tqdm import tqdm_notebook as tqdm
 import glob
+import os
 
 #名前が複数出てきているコミットを一つにまとめる.
 def search_add(list1,list2):
@@ -118,16 +119,26 @@ def commit_reseach(repository_url, from_ver, to_ver, client_id, client_secret):
 
     return commit_list, commit_list2
 
-def get_file_lines(pathname, recursive=True):
+# リポジトリのデータから特定のヴァージョンにおける行数データを取ってくる
+# 入力(data) : 
+def get_file_lines(data, line_list, path_name, client_id, client_secret):
 
-    line_list = []
-    
-    for p in glob.glob(pathname + '/**/*.java', recursive=recursive):
-        if os.path.isfile(p):
-            line = len(open(p).readlines())
-            p = p.replace('\\', '/')
-            p = p.replace(pathname+'/', '')
-            line_list.append([p,line])
+    for i in range(len(data['tree'])):
+        if data['tree'][i]['type'] == 'blob' and '.java' in data['tree'][i]['path']:
+            url2 = data['tree'][i]['url']
+            r2 = requests.get(url2, auth=(client_id, client_secret))
+            data2 = json.loads(r2.text)
+            txt = data2['content']
+            txt2 = base64.b64decode(txt).decode("UTF-8")
+            count = txt2.count('\n')
+            line_list.append([path_name+data['tree'][i]['path'],count])
+
+        elif data['tree'][i]['type'] == 'tree':
+            print(path_name + data['tree'][i]['path'])
+            url2 = data['tree'][i]['url']
+            r2 = requests.get(url2, auth=(client_id, client_secret))
+            data2 = json.loads(r2.text)
+            line_list = get_file_lines(data2, line_list, path_name+data['tree'][i]['path']+'/',client_id, client_secret)
 
     return line_list
 
@@ -138,17 +149,24 @@ def get_file_lines(pathname, recursive=True):
 ファイル行数の取得
 '''
 ############################################################################################################
-def get_java_line(local_ripository_path, repo_url, from_ver, to_ver, client_id, client_secret):
+def get_java_line(repo_url, from_ver, to_ver, client_id, client_secret):
     
-    #テキストデータ読み込み
-    java_line = get_file_lines(local_ripository_path, recursive=True)
+    #リポジトリデータの読み込み
+    repo_url = repo_url.replace('.git', '/git/trees/'+to_ver)
+    api = repo_url.replace('https://github.com/', 'https://api.github.com/repos/')
+    print('api : ' +  api)
+    r = requests.get(api,auth=(client_id, client_secret))
+    data = json.loads(r.text)
+    
+    #行数データの取得
+    java_line = get_file_lines(data, [], '',client_id, client_secret)
 
     #コミットの取得
     _,list_commit = commit_reseach(repo_url, from_ver, to_ver, client_id, client_secret)
 
 
-    #moduleディレクトリのファイルのみのコミットリスト
-    java_commit = []
+    #javaファイルのみのコミットに限定する
+    commit_set = [] 
     java_set = []  #コミットごとにファイルをまとめる
     for i in range(len(list_commit)):
         for j in range(len(list_commit[i])):
@@ -158,29 +176,19 @@ def get_java_line(local_ripository_path, repo_url, from_ver, to_ver, client_id, 
         if java_set == []:
             continue
         else:
-            java_commit.append(java_set)
+            commit_set.append(java_set)
             java_set = []
 
-
-    #java_commitのファイル名をjava_lineの名前に合わせる.
-    for i in java_commit:
-        for j in java_line:
-            if j[0] in i[0]:
-                i[0] = j[0]
-
-    java_commit.reverse()
-
-    java_line = sum_line_generator1(java_line, java_commit)
-    #java_line = sum_line_generator2(java_line, java_commit)
-
+    #それぞれの定義にしたがって行数を計算する
+    java_line = sum_line_generator1(java_line, commit_set)
+    #java_line = sum_line_generator2(java_line, commit_set)
 
     #java_line
     #[0]  :  ファイルの名前
     #[1]  :  Siの値
     
     return java_line
-
-
+    
 ###########################################################################################################
 
 '''
