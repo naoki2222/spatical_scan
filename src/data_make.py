@@ -119,11 +119,36 @@ def commit_reseach(repository_url, from_ver, to_ver, client_id, client_secret):
 
     return commit_list, commit_list2
 
-# リポジトリのデータから特定のヴァージョンにおける行数データを取ってくる
-# 入力(data) : 
-def get_file_lines(data, line_list, path_name, client_id, client_secret):
+###########################################################################################################################################
 
-    for i in range(len(data['tree'])):
+import logging.config
+from ast_processor import AstProcessor
+from basic_info_listener import BasicInfoListener
+
+def depends_get(file_name, file_content):
+    
+    depends_list = []
+    
+    path = 'data.txt'
+    with open(path, mode='w',encoding='UTF-8') as f:
+        f.write(file_content)
+    target_file_path = 'data.txt'
+    ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
+    
+    if ast_info['imports'] != []:
+        for i in range(len(ast_info['imports'])):
+            end = ast_info['imports'][i].replace('.','/')+'.java'
+            depends_list.append([file_name, end])
+
+    return  depends_list
+
+
+# リポジトリのデータから特定のヴァージョンにおける行数データとファイルの依存データを取ってくる
+# 入力(data) : 
+
+def get_file_lines(data, line_list, depends_list, path_name, client_id, client_secret):
+
+    for i in tqdm(range(len(data['tree']))):
         if data['tree'][i]['type'] == 'blob' and '.java' in data['tree'][i]['path']:
             url2 = data['tree'][i]['url']
             r2 = requests.get(url2, auth=(client_id, client_secret))
@@ -132,15 +157,16 @@ def get_file_lines(data, line_list, path_name, client_id, client_secret):
             txt2 = base64.b64decode(txt).decode("UTF-8")
             count = txt2.count('\n')
             line_list.append([path_name+data['tree'][i]['path'],count])
+            depends_list = depends_list + (depends_get(path_name+data['tree'][i]['path'], txt2))
 
         elif data['tree'][i]['type'] == 'tree':
             print(path_name + data['tree'][i]['path'])
             url2 = data['tree'][i]['url']
             r2 = requests.get(url2, auth=(client_id, client_secret))
             data2 = json.loads(r2.text)
-            line_list = get_file_lines(data2, line_list, path_name+data['tree'][i]['path']+'/',client_id, client_secret)
+            line_list, depends_list = get_file_lines(data2, line_list, depends_list, path_name+data['tree'][i]['path']+'/', client_id, client_secret)
 
-    return line_list
+    return line_list, depends_list
 
 #ブランチ, タグ間での変更を見る
 
@@ -152,14 +178,14 @@ def get_file_lines(data, line_list, path_name, client_id, client_secret):
 def get_java_line(repo_url, from_ver, to_ver, client_id, client_secret):
     
     #リポジトリデータの読み込み
-    repo_url = repo_url.replace('.git', '/git/trees/'+to_ver)
-    api = repo_url.replace('https://github.com/', 'https://api.github.com/repos/')
+    api = repo_url.replace('.git', '/git/trees/'+to_ver)
+    api = api.replace('https://github.com/', 'https://api.github.com/repos/')
     print('api : ' +  api)
     r = requests.get(api,auth=(client_id, client_secret))
     data = json.loads(r.text)
     
     #行数データの取得
-    java_line = get_file_lines(data, [], '',client_id, client_secret)
+    java_line,java_module = get_file_lines(data, [], [],'',client_id, client_secret)
 
     #コミットの取得
     _,list_commit = commit_reseach(repo_url, from_ver, to_ver, client_id, client_secret)
@@ -187,7 +213,7 @@ def get_java_line(repo_url, from_ver, to_ver, client_id, client_secret):
     #[0]  :  ファイルの名前
     #[1]  :  Siの値
     
-    return java_line
+    return java_line, java_module
     
 ###########################################################################################################
 
@@ -238,99 +264,6 @@ def get_java_commit(repo_url, from_ver, to_ver, client_id, client_secret, java_l
     return java_commit
 #############################################################################################################
     
-    
-############################################################################################################
-'''
-モジュール依存関係の読み込み
-'''
-###########################################################################################################
-def get_java_module(java_line, dot_name, interaction_type):
-
-    col0 = [] #始点の頂点集合
-    col1 = [] #終点の頂点集合
-    java_module = []
-    interaction_type = interaction_type
-    
-    for i, line in enumerate(open(dot_name)): # ファイルを開いて一行一行読み込む
-
-        c = line.split("->")
-
-        c[0]=c[0].strip()
-        c[0]=c[0].strip('  ')
-        c[0]=c[0].strip('"')
-
-        c[1]=c[1].strip()
-        c[1]=c[1].strip('  ')
-        c[1]=c[1].strip(";")
-        c[1]=c[1].strip('"')
-
-        c[0] =  c[0].replace('.', '/')
-        c[0] =  c[0] + '.java'
-        col0.append((c[0])) 
-        c[1] =  c[1].replace('.', '/')
-        c[1] =  c[1] + '.java'
-        col1.append((c[1])) 
-
-    #辺のリストを作成
-    edge = []
-    for x, y in tqdm(zip(col0, col1)):
-        if ([x,y] not in edge):
-            edge.append([x,y])
-
-    java_module = edge
-            
-    ###########################################################################################################
-    
-    #txtファイル→グラフへの変換
-
-    col0 = [] #始点の頂点集合
-    col1 = [] #終点の頂点集合
-
-    if interaction_type == 'undirect':
-    
-        for i, line in enumerate(open(dot_name)): # ファイルを開いて一行一行読み込む
-
-            c = line.split("->")
-
-            c[0]=c[0].strip()
-            c[0]=c[0].strip('  ')
-            c[0]=c[0].strip('"')
-
-            c[1]=c[1].strip()
-            c[1]=c[1].strip('  ')
-            c[1]=c[1].strip(";")
-            c[1]=c[1].strip('"')
-
-            c[0] =  c[0].replace('.', '/')
-            c[0] =  c[0] + '.java'
-            col0.append((c[0])) 
-            c[1] =  c[1].replace('.', '/')
-            c[1] =  c[1] + '.java'
-            col1.append((c[1]))
-
-        #辺のリストを作成
-        #edge2はedgeの中身を逆転させたもの
-        edge2 = []
-
-        for x, y in tqdm(zip(col0, col1)):
-            if ([y,x] not in edge2):
-                edge2.append([y,x])
-
-        #java_moduleはモジュール依存関係のグラフ
-        java_module = edge + edge2
-
-
-    #java_lineのファイル名にjava_moduleのファイル名をそろえる.
-    for i in tqdm(java_module):
-        for j in java_line:
-            if i[0] in j[0]:
-                i[0] = j[0]
-            if i[1] in j[0]:
-                i[1] = j[0]
-    
-    return java_module
-
-
 #############################################################################################################
 #ファイルごとの属性確率を求める
 #java_lineの長さ == prob_listの長さ
