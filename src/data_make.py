@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
-
 # モジュールインポート
 import requests
 import json
@@ -120,76 +114,55 @@ def commit_reseach(repository_url, from_ver, to_ver, client_id, client_secret):
     return commit_list, commit_list2
 
 ###########################################################################################################################################
-
-import logging.config
 from ast_processor import AstProcessor
 from basic_info_listener import BasicInfoListener
 
-def depends_get(file_name, file_content):
+def get_dependencies(repo_path):
+
+    dependencies = []
+    file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
+
+    print('get dependencies')
+    for i in tqdm(range(len(file_list))):
+        file_list[i] = file_list[i].replace('\\', '/')
+        target_file_path = file_list[i]
+        ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
+
+        if ast_info['imports'] != []:
+            for j in range(len(ast_info['imports'])):
+                end = ast_info['imports'][j].replace('.','/')+'.java'
+                dependencies.append([target_file_path.replace(repo_path+'/',''), end])
+
+    return dependencies
+
+#########################################################################################################################################
+
+def get_file_lines(repo_path):
+
+    line_list = []
     
-    depends_list = []
-    
-    path = 'data.txt'
-    with open(path, mode='w',encoding='UTF-8') as f:
-        f.write(file_content)
-    target_file_path = 'data.txt'
-    ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
-    
-    if ast_info['imports'] != []:
-        for i in range(len(ast_info['imports'])):
-            end = ast_info['imports'][i].replace('.','/')+'.java'
-            depends_list.append([file_name, end])
+    for p in glob.glob(repo_path + '/**/*.java', recursive=True):
+        if os.path.isfile(p):
+            line = len(open(p).readlines())
+            p = p.replace('\\', '/')
+            p = p.replace(repo_path+'/', '')
+            line_list.append([p,line])
 
-    return  depends_list
-
-
-# リポジトリのデータから特定のヴァージョンにおける行数データとファイルの依存データを取ってくる
-# 入力(data) : 
-
-def get_file_lines(data, line_list, depends_list, path_name, client_id, client_secret):
-
-    for i in tqdm(range(len(data['tree']))):
-        if data['tree'][i]['type'] == 'blob' and '.java' in data['tree'][i]['path']:
-            url2 = data['tree'][i]['url']
-            r2 = requests.get(url2, auth=(client_id, client_secret))
-            data2 = json.loads(r2.text)
-            txt = data2['content']
-            txt2 = base64.b64decode(txt).decode("UTF-8")
-            count = txt2.count('\n')
-            line_list.append([path_name+data['tree'][i]['path'],count])
-            depends_list = depends_list + (depends_get(path_name+data['tree'][i]['path'], txt2))
-
-        elif data['tree'][i]['type'] == 'tree':
-            print(path_name + data['tree'][i]['path'])
-            url2 = data['tree'][i]['url']
-            r2 = requests.get(url2, auth=(client_id, client_secret))
-            data2 = json.loads(r2.text)
-            line_list, depends_list = get_file_lines(data2, line_list, depends_list, path_name+data['tree'][i]['path']+'/', client_id, client_secret)
-
-    return line_list, depends_list
-
+    return line_list
 #ブランチ, タグ間での変更を見る
 
-###########################################################################################################
+########################################################################################################################################
 '''
 ファイル行数の取得
 '''
 ############################################################################################################
-def get_java_line(repo_url, from_ver, to_ver, client_id, client_secret):
-    
-    #リポジトリデータの読み込み
-    api = repo_url.replace('.git', '/git/trees/'+to_ver)
-    api = api.replace('https://github.com/', 'https://api.github.com/repos/')
-    print('api : ' +  api)
-    r = requests.get(api,auth=(client_id, client_secret))
-    data = json.loads(r.text)
+def get_java_line(repo_path, repo_url, from_ver, to_ver, client_id, client_secret):
     
     #行数データの取得
-    java_line,java_module = get_file_lines(data, [], [],'',client_id, client_secret)
+    java_line = get_file_lines(repo_path)
 
     #コミットの取得
     _,list_commit = commit_reseach(repo_url, from_ver, to_ver, client_id, client_secret)
-
 
     #javaファイルのみのコミットに限定する
     commit_set = [] 
@@ -213,7 +186,7 @@ def get_java_line(repo_url, from_ver, to_ver, client_id, client_secret):
     #[0]  :  ファイルの名前
     #[1]  :  Siの値
     
-    return java_line, java_module
+    return java_line
     
 ###########################################################################################################
 
