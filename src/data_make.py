@@ -119,21 +119,34 @@ from basic_info_listener import BasicInfoListener
 
 def get_dependencies(repo_path):
 
-    dependencies = []
+    import_dependencies = []
+    exception_dependencies = []
+    
+    #ローカルリポジトリのファイル名を取得
     file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
 
+    #ファイルの依存関係の取得
     print('get dependencies')
     for i in tqdm(range(len(file_list))):
         file_list[i] = file_list[i].replace('\\', '/')
         target_file_path = file_list[i]
         ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
 
+        #importしているファイル名の取得
         if ast_info['imports'] != []:
             for j in range(len(ast_info['imports'])):
                 end = ast_info['imports'][j].replace('.','/')+'.java'
-                dependencies.append([target_file_path.replace(repo_path+'/',''), end])
-
-    return dependencies
+                if [target_file_path.replace(repo_path+'/',''), end] not in import_dependencies:
+                    import_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
+                
+        #例外処理として呼ばれているファイル名の取得
+        if ast_info['exception'] != []:
+            for j in range(len(ast_info['exception'])):
+                end = '/' + ast_info['exception'][j]+'.java'
+                if [target_file_path.replace(repo_path+'/',''), end] not in exception_dependencies:
+                    exception_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
+    
+    return import_dependencies, exception_dependencies
 
 #########################################################################################################################################
 
@@ -143,7 +156,7 @@ def get_file_lines(repo_path):
     
     for p in glob.glob(repo_path + '/**/*.java', recursive=True):
         if os.path.isfile(p):
-            line = len(open(p).readlines())
+            line = len(open(p, encoding="utf-8").readlines())
             p = p.replace('\\', '/')
             p = p.replace(repo_path+'/', '')
             line_list.append([p,line])
