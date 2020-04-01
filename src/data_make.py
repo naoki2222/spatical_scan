@@ -114,8 +114,8 @@ def commit_reseach(repository_url, from_ver, to_ver, client_id, client_secret):
     return commit_list, commit_list2
 
 ###########################################################################################################################################
-from ast_processor import AstProcessor
-from basic_info_listener import BasicInfoListener
+from AST.ast_processor import AstProcessor
+from AST.basic_info_listener import BasicInfoListener
 
 def get_dependencies(repo_path):
 

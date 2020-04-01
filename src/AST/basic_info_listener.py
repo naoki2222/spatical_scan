@@ -1,5 +1,5 @@
-from JavaParserListener import JavaParserListener
-from JavaParser import JavaParser
+from AST.JavaParserListener import JavaParserListener
+from AST.JavaParser import JavaParser
 
 class BasicInfoListener(JavaParserListener):
 

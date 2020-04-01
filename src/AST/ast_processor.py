@@ -1,6 +1,6 @@
 from antlr4 import FileStream, CommonTokenStream, ParseTreeWalker
-from JavaLexer import JavaLexer
-from JavaParser import JavaParser
+from AST.JavaLexer  import JavaLexer
+from AST.JavaParser import JavaParser
 from pprint import pformat
 
 
