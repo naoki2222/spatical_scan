@@ -5,13 +5,7 @@
 
 
 # モジュールインポート
-import requests
-import json
-import base64
-from tqdm import tqdm_notebook as tqdm
 import os, tkinter, tkinter.filedialog, tkinter.messagebox
-import glob
-
 
 def file_select(file_path, file_type, message):
 

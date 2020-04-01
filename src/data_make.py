@@ -1,16 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
-
 # モジュールインポート
 import requests
 import json
 import base64
 from tqdm import tqdm_notebook as tqdm
-import os, tkinter, tkinter.filedialog, tkinter.messagebox
 import glob
+import os
 
 #名前が複数出てきているコミットを一つにまとめる.
 def search_add(list1,list2):
@@ -119,108 +113,72 @@ def commit_reseach(repository_url, from_ver, to_ver, client_id, client_secret):
 
     return commit_list, commit_list2
 
-def get_file_lines(pathname, recursive=True):
+###########################################################################################################################################
+from AST.ast_processor import AstProcessor
+from AST.basic_info_listener import BasicInfoListener
+
+def get_dependencies(repo_path):
+
+    import_dependencies = []
+    exception_dependencies = []
+    
+    #ローカルリポジトリのファイル名を取得
+    file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
+
+    #ファイルの依存関係の取得
+    print('get dependencies')
+    for i in tqdm(range(len(file_list))):
+        file_list[i] = file_list[i].replace('\\', '/')
+        target_file_path = file_list[i]
+        ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
+
+        #importしているファイル名の取得
+        if ast_info['imports'] != []:
+            for j in range(len(ast_info['imports'])):
+                end = ast_info['imports'][j].replace('.','/')+'.java'
+                if [target_file_path.replace(repo_path+'/',''), end] not in import_dependencies:
+                    import_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
+                
+        #例外処理として呼ばれているファイル名の取得
+        if ast_info['exception'] != []:
+            for j in range(len(ast_info['exception'])):
+                end = '/' + ast_info['exception'][j]+'.java'
+                if [target_file_path.replace(repo_path+'/',''), end] not in exception_dependencies:
+                    exception_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
+    
+    return import_dependencies, exception_dependencies
+
+#########################################################################################################################################
+
+def get_file_lines(repo_path):
 
     line_list = []
     
-    for p in glob.glob(pathname + '/**/*.java', recursive=recursive):
+    for p in glob.glob(repo_path + '/**/*.java', recursive=True):
         if os.path.isfile(p):
-            line = len(open(p).readlines())
+            line = len(open(p, encoding="utf-8").readlines())
             p = p.replace('\\', '/')
-            p = p.replace(pathname+'/', '')
+            p = p.replace(repo_path+'/', '')
             line_list.append([p,line])
 
     return line_list
-
-
-def file_select(file_path, file_type, message):
-
-    # ファイル選択ダイアログの表示
-    root = tkinter.Tk()
-    root.withdraw()
-
-    # ファイルのタイプを選択
-    fTyp = [("", "*." + file_type)]
-
-    iDir = os.path.abspath(os.path.dirname(file_path))
-    tkinter.messagebox.showinfo('ファイルの選択',message+'を選択してください')
-    file_name = tkinter.filedialog.askopenfilename(filetypes = fTyp,initialdir = iDir)
-
-    # 処理ファイル名の出力
-    tkinter.messagebox.showinfo('選択されたファイル',file_name)
-    
-    root.destroy()
-    
-    return file_name
-
-
-from tkinter import filedialog
-
-def folder_select(directory = 'C:\\'):
-    
-    root = tkinter.Tk()
-    root.withdraw()
-    tkinter.messagebox.showinfo('ローカルリポジトリの選択','ローカルリポジトリのディレクトリを選択してください')
-    fld = filedialog.askdirectory(initialdir = directory) 
-    root.destroy()
-    
-    return fld
-
-def get_text(message):
-    
-    root2 = tkinter.Tk()
-
-    # ウインドウのタイトルを定義する
-    root2.title(message + 'の入力')
-
-    # ここでウインドウサイズを定義する
-    root2.geometry('400x300')
-
-
-    # ボタンが押されたら呼び出される関数
-    def get_file_name(text):
-        global written_text
-        written_text = text
-        tkinter.messagebox.showinfo('info', text)
-        root2.destroy()
-
-    # ラベルを使って文字を画面上に出す
-    Static1 = tkinter.Label(text=message+'を入力')
-    Static1.pack()
-
-    # Entryを出現させる
-    Entry1 = tkinter.Entry(width=50)                   # widthプロパティで大きさを変える
-    Entry1.insert(tkinter.END, message+'を入力してください')        # 最初から文字を入れておく
-    Entry1.pack()
-
-
-    # Buttonを設置してみる
-    Button1 = tkinter.Button(text=u'決定', width=20, command=lambda: get_file_name(Entry1.get()))# 関数に引数を渡す場合は、commandオプションとlambda式を使う
-    Button1.pack()
-
-    root2.mainloop()
-    
-    root2.destroy
-    return written_text
-
 #ブランチ, タグ間での変更を見る
 
-###########################################################################################################
+########################################################################################################################################
 '''
 ファイル行数の取得
 '''
 ############################################################################################################
-def get_java_line(local_ripository_path, repo_url, from_ver, to_ver, client_id, client_secret):
+def get_java_line(repo_path, repo_url, from_ver, to_ver, client_id, client_secret):
     
-    #テキストデータ読み込み
-    java_line = get_file_lines(local_ripository_path, recursive=True)
+    #行数データの取得
+    java_line = get_file_lines(repo_path)
 
     #コミットの取得
     _,list_commit = commit_reseach(repo_url, from_ver, to_ver, client_id, client_secret)
 
-
-    #moduleディレクトリのファイルのみのコミットリスト
-    java_commit = []
+    #javaファイルのみのコミットに限定する
+    commit_set = [] 
     java_set = []  #コミットごとにファイルをまとめる
     for i in range(len(list_commit)):
         for j in range(len(list_commit[i])):
@@ -230,29 +188,19 @@ def get_java_line(local_ripository_path, repo_url, from_ver, to_ver, client_id, 
         if java_set == []:
             continue
         else:
-            java_commit.append(java_set)
+            commit_set.append(java_set)
             java_set = []
 
-
-    #java_commitのファイル名をjava_lineの名前に合わせる.
-    for i in java_commit:
-        for j in java_line:
-            if j[0] in i[0]:
-                i[0] = j[0]
-
-    java_commit.reverse()
-
-    java_line = sum_line_generator1(java_line, java_commit)
-    #java_line = sum_line_generator2(java_line, java_commit)
-
+    #それぞれの定義にしたがって行数を計算する
+    java_line = sum_line_generator1(java_line, commit_set)
+    #java_line = sum_line_generator2(java_line, commit_set)
 
     #java_line
     #[0]  :  ファイルの名前
     #[1]  :  Siの値
     
     return java_line
-
-
+    
 ###########################################################################################################
 
 '''
@@ -302,99 +250,6 @@ def get_java_commit(repo_url, from_ver, to_ver, client_id, client_secret, java_l
     return java_commit
 #############################################################################################################
     
-    
-############################################################################################################
-'''
-モジュール依存関係の読み込み
-'''
-###########################################################################################################
-def get_java_module(java_line, dot_name, interaction_type):
-
-    col0 = [] #始点の頂点集合
-    col1 = [] #終点の頂点集合
-    java_module = []
-    interaction_type = interaction_type
-    
-    for i, line in enumerate(open(dot_name)): # ファイルを開いて一行一行読み込む
-
-        c = line.split("->")
-
-        c[0]=c[0].strip()
-        c[0]=c[0].strip('  ')
-        c[0]=c[0].strip('"')
-
-        c[1]=c[1].strip()
-        c[1]=c[1].strip('  ')
-        c[1]=c[1].strip(";")
-        c[1]=c[1].strip('"')
-
-        c[0] =  c[0].replace('.', '/')
-        c[0] =  c[0] + '.java'
-        col0.append((c[0])) 
-        c[1] =  c[1].replace('.', '/')
-        c[1] =  c[1] + '.java'
-        col1.append((c[1])) 
-
-    #辺のリストを作成
-    edge = []
-    for x, y in tqdm(zip(col0, col1)):
-        if ([x,y] not in edge):
-            edge.append([x,y])
-
-    java_module = edge
-            
-    ###########################################################################################################
-    
-    #txtファイル→グラフへの変換
-
-    col0 = [] #始点の頂点集合
-    col1 = [] #終点の頂点集合
-
-    if interaction_type == 'undirect':
-    
-        for i, line in enumerate(open(dot_name)): # ファイルを開いて一行一行読み込む
-
-            c = line.split("->")
-
-            c[0]=c[0].strip()
-            c[0]=c[0].strip('  ')
-            c[0]=c[0].strip('"')
-
-            c[1]=c[1].strip()
-            c[1]=c[1].strip('  ')
-            c[1]=c[1].strip(";")
-            c[1]=c[1].strip('"')
-
-            c[0] =  c[0].replace('.', '/')
-            c[0] =  c[0] + '.java'
-            col0.append((c[0])) 
-            c[1] =  c[1].replace('.', '/')
-            c[1] =  c[1] + '.java'
-            col1.append((c[1]))
-
-        #辺のリストを作成
-        #edge2はedgeの中身を逆転させたもの
-        edge2 = []
-
-        for x, y in tqdm(zip(col0, col1)):
-            if ([y,x] not in edge2):
-                edge2.append([y,x])
-
-        #java_moduleはモジュール依存関係のグラフ
-        java_module = edge + edge2
-
-
-    #java_lineのファイル名にjava_moduleのファイル名をそろえる.
-    for i in tqdm(java_module):
-        for j in java_line:
-            if i[0] in j[0]:
-                i[0] = j[0]
-            if i[1] in j[0]:
-                i[1] = j[0]
-    
-    return java_module
-
-
 #############################################################################################################
 #ファイルごとの属性確率を求める
 #java_lineの長さ == prob_listの長さ

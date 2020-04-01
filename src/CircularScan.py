@@ -61,9 +61,10 @@ def LLR(n_G,c_G,n_Z,c_Z):#n:行数 c:属性値   _G:全体集合の   _Z:部分�
 
     LLR = 0
     
-    if ((c_G == c_Z) or (n_G == n_Z) or ((c_Z/n_Z) <= (c_G - c_Z)/(n_G - n_Z))):
+    if (c_G == c_Z) or (n_G == n_Z) or (n_Z == 0):
         return 0
-        
+    elif ((c_Z/n_Z) <= (c_G - c_Z)/(n_G - n_Z)):
+        return 0
     else:
         LLR = c_Z * math.log(c_Z/n_Z) +  (n_Z - c_Z)*math.log(1-c_Z/n_Z)  +  (c_G-c_Z)*math.log((c_G-c_Z)/(n_G-n_Z)) + ((n_G-n_Z)-(c_G-c_Z))*math.log(1-(c_G-c_Z)/(n_G-n_Z)) - c_G*math.log(c_G/n_G) - (n_G-c_G)*math.log(1-c_G/n_G)            
         return LLR
@@ -216,7 +217,7 @@ def Monte_Carlo(LLR_dis, LLR_value,Level):
 #C_scanの設定
 #threshold = 0.25   #領域拡大の停止条件(threshold=0.05 → 領域の行数が全体の5%以上になったら停止)
 
-def CS_run(java_line, java_commit, java_module, prob_list, scan_type, iter_num, hop_count, threshold):
+def CS_run_repeat(java_line, java_commit, java_module, prob_list, scan_type, iter_num, hop_count, threshold):
 
     #repeat_CS_listは各反復でLLRが1位になった領域と領域のp値を保存するリスト
     repeat_CS_list = []
@@ -257,8 +258,6 @@ def CS_run(java_line, java_commit, java_module, prob_list, scan_type, iter_num, 
             for i in  tqdm(prob_list):
                 if i[0] not in cut_list:
                     prob_list_2.append(i)
-
-
 
             print('各ファイルのチェック')        
             print('java_module : ' + str(len(java_module)))
@@ -345,3 +344,58 @@ def CS_run(java_line, java_commit, java_module, prob_list, scan_type, iter_num, 
         
     return repeat_CS_list
 
+def CS_run_single(java_line, java_commit, java_module, prob_list, scan_type, llr_count, hop_count, threshold):
+
+    result_list = []
+
+    print('各ファイルのチェック')        
+    print('java_module : ' + str(len(java_module)))
+    print('java_commit : ' + str(len(java_commit)))
+    print('java_line : ' + str(len(java_line)))
+    print('prob_list : ' + str(len(prob_list)))
+
+    #Circular_scanの実施
+    print('CSの実行')
+    Z_list = []    #CSによってできた領域群Zのリスト
+    LLR_value_list = []  
+
+    #CSの実行
+    if scan_type == 'hop':
+        for i in tqdm(java_line):
+            Z_list = Z_list + C_scan_hops(i,java_module,threshold,java_line,java_commit,hop_count)
+    else:
+        for i in tqdm(java_line):
+            Z_list = Z_list + C_scan(i,java_module,threshold,java_line,java_commit)
+
+    print('finish')
+    print('Number of Z  : ' + str(len(Z_list)))
+
+    #LLRの計算
+    print('calculate LLR')
+    for i in tqdm(Z_list):
+        n_Z,c_Z = Z_data(i,java_line,java_commit)
+        n_G,c_G = G_data(java_line, java_commit)
+        LLR_value_list.append([i,LLR(n_G,c_G,n_Z,c_Z),n_Z,c_Z])
+        LLR_value_list = sorted(LLR_value_list, key=lambda x:x[1], reverse=True)
+
+    #検定の実施とその結果のまとめ
+
+    #LLR_value_list[z][領域群Zの中身, LLRの値, n_Z, c_Z]
+    #input_LLR[領域群Zの中身, LLRの値, n_Z, c_Z]
+
+    #LLRが最大となった領域群を指定
+    input_LLR = LLR_value_list[0:llr_count]
+
+    for i in range(len(input_LLR)):
+        n_G,c_G = G_data(java_line,java_commit)
+        n_Z,c_Z = Z_data(input_LLR[i][0],java_line,java_commit)
+        p = c_G / n_G
+
+        print('calculate p value')
+        dis =  LLR_distribution(9999,p,n_G,input_LLR[i][0],java_line)
+        p_value = Monte_Carlo(dis, input_LLR[i][1], 0.01)
+        print('pval_finish')
+    
+        result_list.append([input_LLR[i][0], p_value, input_LLR[i][1]])
+
+    return result_list
