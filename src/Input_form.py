@@ -1,79 +1,69 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
+import tkinter as Tk
+from collections import OrderedDict
 
 
-# モジュールインポート
-import os, tkinter, tkinter.filedialog, tkinter.messagebox
+def get_data():
 
-def file_select(file_path, file_type, message):
+    def load_widget():
+        widget_list = list()
+        widget_list.append({'type': 'Label', 'text': "リポジトリのURL :", 'relx': 0.01, 'rely': 0.005})
+        widget_list.append({'type': 'Entry', 'width': 80, 'relx': 0.11, 'rely': 0.005, 'focus_set': True})
+        widget_list.append({'type': 'Label', 'text': "変更前のブランチ :", 'relx': 0.01, 'rely': 0.055})
+        widget_list.append({'type': 'Entry', 'width': 20, 'relx': 0.11, 'rely': 0.055})
+        widget_list.append({'type': 'Label', 'text': "変更後のブランチ :", 'relx': 0.01, 'rely': 0.105})
+        widget_list.append({'type': 'Entry', 'width': 20, 'relx': 0.11, 'rely': 0.105})
+        widget_list.append({'type': 'Label', 'text': "クライアントID :", 'relx': 0.01, 'rely': 0.155})
+        widget_list.append({'type': 'Entry', 'width': 60, 'relx': 0.11, 'rely': 0.155})
+        widget_list.append({'type': 'Label', 'text': "シークレット :", 'relx': 0.01, 'rely': 0.205})
+        widget_list.append({'type': 'Entry', 'width': 60, 'relx': 0.11, 'rely': 0.205})
+        widget_list.append({'type': 'Button', 'text': "保存", 'relx': 0.11, 'rely': 0.255})
+        return widget_list
 
-    # ファイル選択ダイアログの表示
-    root = tkinter.Tk()
-    root.withdraw()
+    def create_widgets(root):
 
-    # ファイルのタイプを選択
-    fTyp = [("", "*." + file_type)]
+        def func(root):
+            global text1
+            global text2
+            global text3
+            global text4
+            global text5
+            text1 = root.widgets[1].get()
+            print("リポジトリのURL : " + text1)
+            text2 = root.widgets[3].get()
+            print("変更前のブランチ : " +  text2)
+            text3 = root.widgets[5].get()
+            print("変更後のブランチ : " + text3)
+            text4 = root.widgets[7].get()
+            print("クライアントID : " + text4)
+            text5 = root.widgets[9].get()
+            print("シークレット : " + text5)
+            root.destroy()
 
-    iDir = os.path.abspath(os.path.dirname(file_path))
-    tkinter.messagebox.showinfo('ファイルの選択',message+'を選択してください')
-    file_name = tkinter.filedialog.askopenfilename(filetypes = fTyp,initialdir = iDir)
+        # ルート参照から到達できるように生成したwidgetを保持
+        widget_dict = OrderedDict()
+        for i, component in enumerate(load_widget()):
+            widget = None
+            if component['type'] == 'Label':
+                widget = Tk.Label(root, text=component['text'])
+            elif component['type'] == 'Entry':
+                widget = Tk.Entry(root, width=component['width'])
+                if 'focus_set' in component:
+                    if component['focus_set']:
+                        widget.focus_set()
+            elif component['type'] == 'Button':
+                widget = Tk.Button(root, text=component['text'] , command=lambda: func(root))
+            else:
+                assert widget is not None, component['type']
+            widget.place(relx=component['relx'], rely=component['rely'])
+            widget_dict[i] = widget
 
-    # 処理ファイル名の出力
-    tkinter.messagebox.showinfo('選択されたファイル',file_name)
+        return widget_dict
+
+    root = Tk.Tk()
+    root.geometry("1000x600")
+    root.widgets = create_widgets(root)
+
+    # 作成したwidgetを出力
+    root.mainloop()
     
-    root.destroy()
-    
-    return file_name
-
-
-from tkinter import filedialog
-
-def folder_select(directory = 'C:\\'):
-    
-    root = tkinter.Tk()
-    root.withdraw()
-    tkinter.messagebox.showinfo('ローカルリポジトリの選択','ローカルリポジトリのディレクトリを選択してください')
-    fld = filedialog.askdirectory(initialdir = directory) 
-    root.destroy()
-    
-    return fld
-
-def get_text(message):
-    
-    root2 = tkinter.Tk()
-
-    # ウインドウのタイトルを定義する
-    root2.title(message + 'の入力')
-
-    # ここでウインドウサイズを定義する
-    root2.geometry('400x300')
-
-
-    # ボタンが押されたら呼び出される関数
-    def get_file_name(text):
-        global written_text
-        written_text = text
-        tkinter.messagebox.showinfo('info', text)
-        root2.destroy()
-
-    # ラベルを使って文字を画面上に出す
-    Static1 = tkinter.Label(text=message+'を入力')
-    Static1.pack()
-
-    # Entryを出現させる
-    Entry1 = tkinter.Entry(width=50)                   # widthプロパティで大きさを変える
-    Entry1.insert(tkinter.END, message+'を入力してください')        # 最初から文字を入れておく
-    Entry1.pack()
-
-
-    # Buttonを設置してみる
-    Button1 = tkinter.Button(text=u'決定', width=20, command=lambda: get_file_name(Entry1.get()))# 関数に引数を渡す場合は、commandオプションとlambda式を使う
-    Button1.pack()
-
-    root2.mainloop()
-    
-    root2.destroy
-    return written_text
-
+    return text1, text2, text3, text4, text5
