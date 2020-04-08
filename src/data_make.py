@@ -179,7 +179,7 @@ def get_java_line(repo_path, repo_url, from_ver, to_ver, client_id, client_secre
 
     #javaファイルのみのコミットに限定する
     commit_set = [] 
-    java_set = []  #コミットごとにファイルをまとめる
+    java_set = []   #コミットごとにファイルをまとめる
     for i in range(len(list_commit)):
         for j in range(len(list_commit[i])):
             if ('.java' in list_commit[i][j][0]):
@@ -192,8 +192,8 @@ def get_java_line(repo_path, repo_url, from_ver, to_ver, client_id, client_secre
             java_set = []
 
     #それぞれの定義にしたがって行数を計算する
-    java_line = sum_line_generator1(java_line, commit_set)
-    #java_line = sum_line_generator2(java_line, commit_set)
+    #java_line = sum_line_generator1(java_line, commit_set)
+    java_line = sum_line_generator2(java_line, commit_set)
 
     #java_line
     #[0]  :  ファイルの名前
