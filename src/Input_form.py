@@ -82,7 +82,6 @@ def data_get2():
         global text9
         global text10
         global text11
-        global text12
 
         text6 = sv1.get()
         print("CSの関数: " + text6)
@@ -90,14 +89,12 @@ def data_get2():
         print("停止条件の種類 : " + text7)
         text8 = sv3.get()
         print("グラフの種類 : " + text8)
-        text9 = sv4.get()
-        print("例外処理 : " + text9)
-        text10 = tS1.get()
-        print("しきい値 : " + text10)
-        text11 = tS2.get()
-        print("CSの実行回数 : " + text11)
-        text12 = tS3.get()
-        print("CSのホップ数 : " + text12)
+        text9 = tS1.get()
+        print("しきい値 : " + text9)
+        text10 = tS2.get()
+        print("CSの実行回数 : " + text10)
+        text11 = tS3.get()
+        print("CSのホップ数 : " + text11)
         root.destroy()
 
 
@@ -121,14 +118,6 @@ def data_get2():
     sv3.set('有効グラフ')
     tO3 = tk.OptionMenu(root, sv3, '有効グラフ', '無向グラフ')
     tO3.grid(row=3, column=1, padx=10, pady=10)
-    
-    # OptionMenu 4
-    tk.Label(root, text="例外処理").grid(row=4, sticky="e")
-    sv4 = tk.StringVar()
-    sv4.set('あり')
-    tO4 = tk.OptionMenu(root, sv4, 'あり', 'なし')
-    tO4.grid(row=4, column=1, padx=10, pady=10)
-    
 
     # Spinbox 1
     tk.Label(root, text="しきい値").grid(row=1, column=2, sticky="e")
@@ -152,4 +141,4 @@ def data_get2():
     root.title("実験条件の入力")
     root.mainloop()
     
-    return  text6, text7, text8, text9, text10, text11, text12
+    return  text6, text7, text8, text9, text10, text11

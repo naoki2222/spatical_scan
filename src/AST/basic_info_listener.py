@@ -7,7 +7,12 @@ class BasicInfoListener(JavaParserListener):
         self.call_methods = []
         self.ast_info = {
             'imports': [],
-            'exception': []
+            'exception': [],
+            'className': '',
+            'implements': [],
+            'extends': '',
+            'interface':[],
+            'interface_extends':[]
         }
 
     # Enter a parse tree produced by JavaParser#importDeclaration.
@@ -66,3 +71,60 @@ class BasicInfoListener(JavaParserListener):
 
             count = count + 1
             c = [ctx.getChild(count)]
+            
+     # Enter a parse tree produced by JavaParser#classDeclaration.
+    def enterClassDeclaration(self, ctx:JavaParser.ClassDeclarationContext):
+        child_count = int(ctx.getChildCount())
+        if child_count == 7:
+            # class Foo extends Bar implements Hoge
+            # c1 = ctx.getChild(0)  # ---> class
+            c2 = ctx.getChild(1).getText()  # ---> class name
+            # c3 = ctx.getChild(2)  # ---> extends
+            c4 = ctx.getChild(3).getChild(0).getText()  # ---> extends class name
+            # c5 = ctx.getChild(4)  # ---> implements
+            # c7 = ctx.getChild(6)  # ---> method body
+            self.ast_info['className'] = c2
+            self.ast_info['implements'] = self.parse_implements_block(ctx.getChild(5))
+            self.ast_info['extends'] = c4
+        elif child_count == 5:
+            # class Foo extends Bar
+            # or
+            # class Foo implements Hoge
+            # c1 = ctx.getChild(0)  # ---> class
+            c2 = ctx.getChild(1).getText()  # ---> class name
+            c3 = ctx.getChild(2).getText()  # ---> extends or implements
+
+            # c5 = ctx.getChild(4)  # ---> method body
+            self.ast_info['className'] = c2
+            if c3 == 'implements':
+                self.ast_info['implements'] = self.parse_implements_block(ctx.getChild(3))
+            elif c3 == 'extends':
+                c4 = ctx.getChild(3).getChild(0).getText()  # ---> extends class name or implements class name
+                self.ast_info['extends'] = c4
+        elif child_count == 3:
+            # class Foo
+            # c1 = ctx.getChild(0)  # ---> class
+            c2 = ctx.getChild(1).getText()  # ---> class name
+            # c3 = ctx.getChild(2)  # ---> method body
+            self.ast_info['className'] = c2
+        
+
+    def parse_implements_block(self, ctx):
+        implements_child_count = int(ctx.getChildCount())
+        result = []
+        if implements_child_count == 1:
+            impl_class = ctx.getChild(0).getText()
+            result.append(impl_class)
+        elif implements_child_count > 1:
+            for i in range(implements_child_count):
+                if i % 2 == 0:
+                    impl_class = ctx.getChild(i).getText()
+                    result.append(impl_class)
+        return result
+
+    # Enter a parse tree produced by JavaParser#interfaceDeclaration.
+    def enterInterfaceDeclaration(self, ctx:JavaParser.InterfaceDeclarationContext):
+        child_count = int(ctx.getChildCount())
+
+        if ctx.getChild(2).getText() == 'extends':
+            self.ast_info['interface_extends'].append([ctx.getChild(1).getText(), ctx.getChild(3).getText()])

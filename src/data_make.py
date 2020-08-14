@@ -121,6 +121,9 @@ def get_dependencies(repo_path):
 
     import_dependencies = []
     exception_dependencies = []
+    class_interface_dic = {}
+    extends_list = []
+    interface_extends_list = []
     
     #ローカルリポジトリのファイル名を取得
     file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
@@ -146,7 +149,32 @@ def get_dependencies(repo_path):
                 if [target_file_path.replace(repo_path+'/',''), end] not in exception_dependencies:
                     exception_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
     
-    return import_dependencies, exception_dependencies
+
+    for i in tqdm(range(len(file_list))):
+        file_list[i] = file_list[i].replace('\\', '/')
+        target_file_path = file_list[i]
+        ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
+
+        class_interface_dic[target_file_path.split('/')[-1].split('.')[0]] = target_file_path
+
+        if ast_info['extends'] != '':
+            extends_list.append([file_list[i], ast_info['extends']])
+        if ast_info['interface_extends'] != []:
+            interface_extends_list = interface_extends_list + ast_info['interface_extends']
+    
+    #interface_extendsクラス名をファイル名に変更する
+    for i in interface_extends_list:
+        if i[0] in class_interface_dic.keys():
+            i[0] = class_interface_dic[i[0]]
+        if i[1] in class_interface_dic.keys():
+            i[1] = class_interface_dic[i[1]]      
+    
+    #クラス名をファイル名
+    for e in range(len(extends_list)):
+        if extends_list[e][1] in class_interface_dic.keys():
+            extends_list[e][1] = class_interface_dic[extends_list[e][1]]
+
+    return import_dependencies, exception_dependencies, class_interface_dic, extends_list, interface_extends_list
 
 #########################################################################################################################################
 
@@ -192,8 +220,8 @@ def get_java_line(repo_path, repo_url, from_ver, to_ver, client_id, client_secre
             java_set = []
 
     #それぞれの定義にしたがって行数を計算する
-    #java_line = sum_line_generator1(java_line, commit_set)
-    java_line = sum_line_generator2(java_line, commit_set)
+    java_line = sum_line_generator1(java_line, commit_set)
+    #java_line = sum_line_generator2(java_line, commit_set)
 
     #java_line
     #[0]  :  ファイルの名前
