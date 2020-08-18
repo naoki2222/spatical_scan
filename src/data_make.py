@@ -124,6 +124,7 @@ def get_dependencies(repo_path):
     class_interface_dic = {}
     extends_list = []
     interface_extends_list = []
+    implements_list = []
     
     #ローカルリポジトリのファイル名を取得
     file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
@@ -148,12 +149,6 @@ def get_dependencies(repo_path):
                 end = '/' + ast_info['exception'][j]+'.java'
                 if [target_file_path.replace(repo_path+'/',''), end] not in exception_dependencies:
                     exception_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
-    
-
-    for i in tqdm(range(len(file_list))):
-        file_list[i] = file_list[i].replace('\\', '/')
-        target_file_path = file_list[i]
-        ast_info = AstProcessor(BasicInfoListener()).execute(target_file_path)
 
         class_interface_dic[target_file_path.split('/')[-1].split('.')[0]] = target_file_path
 
@@ -161,6 +156,10 @@ def get_dependencies(repo_path):
             extends_list.append([file_list[i], ast_info['extends']])
         if ast_info['interface_extends'] != []:
             interface_extends_list = interface_extends_list + ast_info['interface_extends']
+        if ast_info['implements'] != []:
+            for impl in range(len(ast_info['implements'])):
+                implements_list.append([file_list[i], ast_info['implements'][impl]])
+
     
     #interface_extendsクラス名をファイル名に変更する
     for i in interface_extends_list:
@@ -173,8 +172,12 @@ def get_dependencies(repo_path):
     for e in range(len(extends_list)):
         if extends_list[e][1] in class_interface_dic.keys():
             extends_list[e][1] = class_interface_dic[extends_list[e][1]]
+           
+    for imp in range(len(implements_list)):
+        if implements_list[imp][1] in class_interface_dic.keys():
+            implements_list[imp][1] = class_interface_dic[implements_list[imp][1]]
 
-    return import_dependencies, exception_dependencies, class_interface_dic, extends_list, interface_extends_list
+    return import_dependencies, exception_dependencies, class_interface_dic, extends_list, interface_extends_list, implements_list
 
 #########################################################################################################################################
 
