@@ -8,11 +8,12 @@ class BasicInfoListener(JavaParserListener):
         self.ast_info = {
             'imports': [],
             'exception': [],
-            'className': '',
+            'className': [],
             'implements': [],
             'extends': '',
             'interface':[],
-            'interface_extends':[]
+            'interface_extends':[],
+            'field_type':[]
         }
 
     # Enter a parse tree produced by JavaParser#importDeclaration.
@@ -66,6 +67,10 @@ class BasicInfoListener(JavaParserListener):
                     c2_list = c2.split('|')
                     for i in c2_list:
                         self.ast_info['exception'].append(i)
+                elif ',' in c2:
+                    c2_list = c2.split(',')
+                    for i in c2_list:
+                        self.ast_info['exception'].append(i)
                 else:
                     self.ast_info['exception'].append(c2)
 
@@ -83,7 +88,7 @@ class BasicInfoListener(JavaParserListener):
             c4 = ctx.getChild(3).getChild(0).getText()  # ---> extends class name
             # c5 = ctx.getChild(4)  # ---> implements
             # c7 = ctx.getChild(6)  # ---> method body
-            self.ast_info['className'] = c2
+            self.ast_info['className'].append(c2)
             self.ast_info['implements'] = self.parse_implements_block(ctx.getChild(5))
             self.ast_info['extends'] = c4
         elif child_count == 5:
@@ -95,7 +100,7 @@ class BasicInfoListener(JavaParserListener):
             c3 = ctx.getChild(2).getText()  # ---> extends or implements
 
             # c5 = ctx.getChild(4)  # ---> method body
-            self.ast_info['className'] = c2
+            self.ast_info['className'].append(c2)
             if c3 == 'implements':
                 self.ast_info['implements'] = self.parse_implements_block(ctx.getChild(3))
             elif c3 == 'extends':
@@ -106,8 +111,7 @@ class BasicInfoListener(JavaParserListener):
             # c1 = ctx.getChild(0)  # ---> class
             c2 = ctx.getChild(1).getText()  # ---> class name
             # c3 = ctx.getChild(2)  # ---> method body
-            self.ast_info['className'] = c2
-        
+            self.ast_info['className'].append(c2)
 
     def parse_implements_block(self, ctx):
         implements_child_count = int(ctx.getChildCount())
@@ -125,6 +129,15 @@ class BasicInfoListener(JavaParserListener):
     # Enter a parse tree produced by JavaParser#interfaceDeclaration.
     def enterInterfaceDeclaration(self, ctx:JavaParser.InterfaceDeclarationContext):
         child_count = int(ctx.getChildCount())
-
+        if child_count <= 3:
+            self.ast_info['interface'].append(ctx.getChild(1).getText())
+        
         if ctx.getChild(2).getText() == 'extends':
             self.ast_info['interface_extends'].append([ctx.getChild(1).getText(), ctx.getChild(3).getText()])
+            self.ast_info['interface'].append(ctx.getChild(1).getText())
+
+    def enterFieldDeclaration(self, ctx:JavaParser.FieldDeclarationContext):
+        type_list = ['byte','int','short','long','float','double','char','String','boolean','object','byte[]','int[]','short[]','long[]','byte[]','float[]','double[]','char[]','String[]','boolean[]','object[]']
+        fieldType = ctx.getChild(0).getText()
+        if fieldType not in type_list:
+            self.ast_info['field_type'].append(ctx.getChild(0).getText())

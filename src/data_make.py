@@ -118,13 +118,17 @@ from AST.ast_processor import AstProcessor
 from AST.basic_info_listener import BasicInfoListener
 
 def get_dependencies(repo_path):
+    
+    class_name_dic = {}
+    interface_dic = {}
+    class_interface_dic = {}
 
     import_dependencies = []
     exception_dependencies = []
-    class_interface_dic = {}
     extends_list = []
     interface_extends_list = []
     implements_list = []
+    field_type_list = []
     
     #ローカルリポジトリのファイル名を取得
     file_list = glob.glob(repo_path + '/**/*.java',recursive=True)
@@ -150,16 +154,30 @@ def get_dependencies(repo_path):
                 if [target_file_path.replace(repo_path+'/',''), end] not in exception_dependencies:
                     exception_dependencies.append([target_file_path.replace(repo_path+'/',''), end])
 
-        class_interface_dic[target_file_path.split('/')[-1].split('.')[0]] = target_file_path
 
+        if ast_info['className'] != []:
+            for class_name in ast_info['className']:
+                class_name_dic[class_name]=target_file_path
         if ast_info['extends'] != '':
             extends_list.append([file_list[i], ast_info['extends']])
+        if ast_info['interface'] != []:
+            for interface_name in ast_info['interface']:
+                interface_dic[interface_name] = target_file_path
         if ast_info['interface_extends'] != []:
             interface_extends_list = interface_extends_list + ast_info['interface_extends']
         if ast_info['implements'] != []:
             for impl in range(len(ast_info['implements'])):
-                implements_list.append([file_list[i], ast_info['implements'][impl]])
+                implements_list.append([target_file_path.replace(repo_path+'/',''), ast_info['implements'][impl]])
+        if ast_info['field_type'] != []:
+            for field in ast_info['field_type']:
+                if '<' in field:
+                    field = field.split('<')[0]
+                if '[]' in field:
+                    field = field.strip('[]')
+                field_type_list.append([target_file_path.replace(repo_path+'/',''), field])
 
+    class_interface_dic.update(class_name_dic)
+    class_interface_dic.update(interface_dic)
     
     #interface_extendsクラス名をファイル名に変更する
     for i in interface_extends_list:
@@ -168,16 +186,20 @@ def get_dependencies(repo_path):
         if i[1] in class_interface_dic.keys():
             i[1] = class_interface_dic[i[1]]      
     
-    #クラス名をファイル名
+    #クラス名をファイル名に変換
     for e in range(len(extends_list)):
         if extends_list[e][1] in class_interface_dic.keys():
             extends_list[e][1] = class_interface_dic[extends_list[e][1]]
-           
+            
     for imp in range(len(implements_list)):
         if implements_list[imp][1] in class_interface_dic.keys():
             implements_list[imp][1] = class_interface_dic[implements_list[imp][1]]
+            
+    for i in field_type_list:
+        if i[1] in class_interface_dic.keys():
+            i[1] = class_interface_dic[i[1]]
 
-    return import_dependencies, exception_dependencies, class_interface_dic, extends_list, interface_extends_list, implements_list
+    return import_dependencies, exception_dependencies, class_interface_dic, extends_list, interface_extends_list, implements_list, field_type_list
 
 #########################################################################################################################################
 
